@@ -11,33 +11,45 @@ jobs:
       - name: Install Desktop & VNC
         run: |
           sudo apt update
-          # Install XFCE and TigerVNC
-          sudo apt install -y xfce4 xfce4-goodies tigervnc-standalone-server
+          # dbus-x11 and xinit are required to prevent the 'exited too early' error
+          sudo apt install -y xfce4 xfce4-goodies tigervnc-standalone-server dbus-x11 xinit
           
           # Setup VNC directory
           mkdir -p ~/.vnc
           
-          # Securely create password file from GitHub Secret
-          # If secret is not set, it defaults to 'dev12345'
+          # Securely create password file from GitHub Secret (fallback to dev12345)
           echo "${{ secrets.VNC_PW || 'dev12345' }}" | vncpasswd -f > ~/.vnc/passwd
           chmod 600 ~/.vnc/passwd
           
-          # Create xstartup script to launch XFCE
+          # Create the xstartup script with a 'wait' command to keep the session alive
           cat <<EOF > ~/.vnc/xstartup
           #!/bin/sh
           unset SESSION_MANAGER
           unset DBUS_SESSION_BUS_ADDRESS
+          
+          # Launch XFCE in the background
           startxfce4 &
+          
+          # Wait for the background process to prevent VNC from closing immediately
+          wait
           EOF
           chmod +x ~/.vnc/xstartup
 
       - name: Start VNC Server
         run: |
-          # Kill any existing sessions and start a new one
-          vncserver -kill :1 || true
-          vncserver :1 -geometry 1280x800 -depth 24
+          # Clean up any existing locks from previous failed runs
+          vncserver -kill :1 || rm -rf /tmp/.X1-lock /tmp/.X11-unix/X1 || true
+          
+          # Start server with 1280x800 resolution
+          # -localhost no allows the tmate tunnel to bridge correctly
+          vncserver :1 -geometry 1280x800 -depth 24 -localhost no
 
       - name: Start tmate Session
         uses: mxschmitt/action-tmate@v3
         with:
+          # detached: false ensures the VM stays running while you work
           detached: false
+
+      - name: Debug VNC Logs (Runs only on failure)
+        if: failure()
+        run: cat ~/.vnc/*.log
