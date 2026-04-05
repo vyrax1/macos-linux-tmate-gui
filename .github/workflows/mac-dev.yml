@@ -10,9 +10,11 @@ jobs:
 
       - name: Enable Screen Sharing
         run: |
-          # Use the secret for the runner user password
-          # Fallback to 'dev12345' if the secret is not set
-          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+          # Get the VNC password from secret, fallback to 'dev12345'
+          USER_PW="${{ secrets.VNC_PW }}"
+          USER_PW="${USER_PW:-dev12345}"
+
+          echo "Setting runner password and enabling Screen Sharing..."
 
           # Safely set the password for the 'runner' user
           sudo pwpolicy -u runner -setpassword "$USER_PW"
@@ -21,11 +23,13 @@ jobs:
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -activate -configure -access -on -restart -agent -privs -all
 
-          # Enable VNC access with the password
+          # Enable VNC access with password
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvnclegacy -vnclegacy yes
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
             -configure -clientopts -setvncpw -vncpw "$USER_PW"
+
+          echo "Screen Sharing enabled! Connect via VNC using password: $USER_PW"
 
       - name: Pre-install Flutter & Tools
         run: |
