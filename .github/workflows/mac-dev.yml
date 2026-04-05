@@ -1,0 +1,36 @@
+name: macOS GUI (Apple)
+on: workflow_dispatch
+
+jobs:
+  run-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Enable Screen Sharing
+        run: |
+          # Use the secret for the runner user password
+          # Fallback to 'dev12345' if the secret is not set
+          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+         
+          # Set the password for the 'runner' user
+          sudo dscl . -passwd /Users/runner "$USER_PW"
+         
+          # Enable Apple Remote Desktop (Screen Sharing)
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on -restart -agent -privs -all
+
+      - name: Pre-install Flutter & Tools
+        run: |
+          # Homebrew is pre-installed on macOS runners
+          brew install --cask flutter
+          sudo xcodebuild -license accept
+          # Accept licenses silently where possible
+          yes | flutter doctor --android-licenses || true
+
+      - name: Start tmate Bridge
+        uses: mxschmitt/action-tmate@v3
+        with:
+          # MUST be false to keep the macOS session alive
+          detached: false
