@@ -13,13 +13,19 @@ jobs:
           # Use the secret for the runner user password
           # Fallback to 'dev12345' if the secret is not set
           USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
-         
-          # Set the password for the 'runner' user
-          sudo dscl . -passwd /Users/runner "$USER_PW"
-         
-          # Enable Apple Remote Desktop (Screen Sharing)
+
+          # Safely set the password for the 'runner' user
+          sudo pwpolicy -u runner -setpassword "$USER_PW"
+
+          # Enable Apple Remote Desktop (Screen Sharing) with full privileges
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-          -activate -configure -access -on -restart -agent -privs -all
+            -activate -configure -access -on -restart -agent -privs -all
+
+          # Enable VNC access with the password
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvnclegacy -vnclegacy yes
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+            -configure -clientopts -setvncpw -vncpw "$USER_PW"
 
       - name: Pre-install Flutter & Tools
         run: |
@@ -32,5 +38,5 @@ jobs:
       - name: Start tmate Bridge
         uses: mxschmitt/action-tmate@v3
         with:
-          # MUST be false to keep the macOS session alive
+          # Keep the macOS session alive for interactive access
           detached: false
