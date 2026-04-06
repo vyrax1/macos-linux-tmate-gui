@@ -1,21 +1,35 @@
-name: macOS GUI via NoMachine
+name: macOS GUI (RustDesk) + Terminal (tmate)
 on: workflow_dispatch
 
 jobs:
-  macos-nomachine:
+  macos-combined:
     runs-on: macos-latest
     steps:
-      - name: Install NoMachine Server
-        run: |
-          brew install --cask nomachine
-          
-          # Set password for 'runner' user
-          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
-          echo "$USER_PW" | sudo passwd -u runner
-          
-          echo "✅ NoMachine installed. Password set for user: runner"
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Start tmate session
+      - name: Setup RustDesk (GUI)
+        run: |
+          # 1. Install RustDesk
+          brew install --cask rustdesk
+          
+          # 2. Set permanent password
+          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+          sudo /Applications/RustDesk.app/Contents/MacOS/rustdesk --password "$USER_PW"
+          
+          # 3. Print ID and Password to the logs
+          echo "-------------------------------------------"
+          echo "RUSTDESK GUI ACCESS:"
+          echo "ID: $(/Applications/RustDesk.app/Contents/MacOS/rustdesk --get-id)"
+          echo "PASSWORD: $USER_PW"
+          echo "-------------------------------------------"
+          
+          # 4. Start the RustDesk service in the background
+          # We use 'open' to launch it without blocking the workflow
+          open -a RustDesk
+
+      - name: Setup tmate session (Terminal)
         uses: mxschmitt/action-tmate@v3
         with:
+          # This allows the workflow to keep running both tools
           limit-access-to-actor: false
