@@ -1,6 +1,6 @@
 name: macOS GUI VM
 on: 
-  workflow_dispatch: # Allows manual start from the Actions tab
+  workflow_dispatch: # Allows you to start it manually from the Actions tab
 
 jobs:
   macos-gui:
@@ -11,25 +11,26 @@ jobs:
 
       - name: Configure macOS GUI and VNC
         run: |
-          # 1. Set the Password (Priority: Secret > Fallback)
+          # 1. Define the Password (Secret or Fallback)
           USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
           
-          # 2. Update the 'runner' user password for the OS login
-          sudo dscl . -passwd /Users/runner "$USER_PW"
+          # 2. Force the password change for the 'runner' user
+          # This method avoids the "eDSAuthFailed" error
+          echo "$USER_PW" | sudo passwd -u runner
           
-          # 3. Configure Apple Remote Desktop & VNC
-          # This converts the password to the hex format required for VNC viewers
+          # 3. Prepare the VNC password in the hex format macOS requires
           VNC_HEX=$(printf "$USER_PW" | perl -e 'print pack("H*", "0000000000000000") . <STDIN>')
 
+          # 4. Enable Screen Sharing and VNC access
           sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
           -activate -configure -access -on \
           -clientopts -setvncpasswd -vncpasswd "$VNC_HEX" \
           -restart -agent -privs -all
           
-          echo "✅ GUI and VNC configured successfully."
+          echo "✅ GUI and VNC configured. Waiting for tmate..."
 
       - name: Start tmate session
         uses: mxschmitt/action-tmate@v3
         with:
-          # Set to true if you have your public SSH key saved in your GitHub settings
+          # Set to true only if you have your SSH public key in your GitHub profile
           limit-access-to-actor: false
