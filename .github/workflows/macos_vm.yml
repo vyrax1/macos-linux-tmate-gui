@@ -8,35 +8,31 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup RustDesk (GUI)
+      - name: Setup RustDesk (Fixed 2026)
         run: |
           # 1. Install RustDesk
           brew install --cask rustdesk
           USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
           
-          # 2. Wait for system to index the new app (Fixes 'No such file' error)
-          sleep 5
-          
-          # 3. Force Service Installation and Password Set
-          # We use sudo to ensure it has permission to reach the network
-          sudo /Applications/RustDesk.app/Contents/MacOS/rustdesk --password "$USER_PW"
-          sudo /Applications/RustDesk.app/Contents/MacOS/rustdesk --install-service || true
-          
-          # 4. Launch the GUI process
+          # 2. Start the app first to force folder creation
           open -a RustDesk
+          sleep 10
+
+          # 3. Use the absolute path with the --password and --wait flag
+          # This is the correct syntax for the 1.4.6 binary on macOS
+          sudo /Applications/RustDesk.app/Contents/MacOS/RustDesk --password "$USER_PW"
           
-          # 5. Wait for ID registration
-          echo "Waiting for RustDesk ID..."
-          sleep 15
+          # 4. Install and Start the Service
+          sudo /Applications/RustDesk.app/Contents/MacOS/RustDesk --install-service || true
           
+          # 5. Get the ID
           echo "-------------------------------------------"
-          echo "RUSTDESK GUI ACCESS:"
-          echo "ID: $(/Applications/RustDesk.app/Contents/MacOS/rustdesk --get-id)"
+          echo "RUSTDESK ACCESS:"
+          echo "ID: $(/Applications/RustDesk.app/Contents/MacOS/RustDesk --get-id)"
           echo "PASSWORD: $USER_PW"
           echo "-------------------------------------------"
 
-      - name: Setup tmate session (Terminal)
+      - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
         with:
-          # This keeps the job alive for 6 hours
           limit-access-to-actor: false
