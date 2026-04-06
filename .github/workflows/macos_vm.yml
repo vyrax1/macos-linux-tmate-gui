@@ -8,27 +8,32 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup RustDesk (Fixed 2026)
+      - name: Setup RustDesk (Deep Fix)
         run: |
           # 1. Install RustDesk
           brew install --cask rustdesk
           USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
           
-          # 2. Start the app first to force folder creation
-          open -a RustDesk
-          sleep 10
-
-          # 3. Use the absolute path with the --password and --wait flag
-          # This is the correct syntax for the 1.4.6 binary on macOS
-          sudo /Applications/RustDesk.app/Contents/MacOS/RustDesk --password "$USER_PW"
+          # 2. Wait for file system to settle
+          sleep 5
           
-          # 4. Install and Start the Service
-          sudo /Applications/RustDesk.app/Contents/MacOS/RustDesk --install-service || true
+          # 3. Define the Binary Path (bypass 'open -a' which is failing)
+          RUSTDESK_BIN="/Applications/RustDesk.app/Contents/MacOS/RustDesk"
           
-          # 5. Get the ID
+          # 4. Set the password using the direct path
+          sudo "$RUSTDESK_BIN" --password "$USER_PW"
+          
+          # 5. Start the service and the GUI in background
+          sudo "$RUSTDESK_BIN" --install-service || true
+          "$RUSTDESK_BIN" & 
+          
+          # 6. Wait for network registration
+          echo "Waiting for ID..."
+          sleep 15
+          
           echo "-------------------------------------------"
           echo "RUSTDESK ACCESS:"
-          echo "ID: $(/Applications/RustDesk.app/Contents/MacOS/RustDesk --get-id)"
+          echo "ID: $($RUSTDESK_BIN --get-id)"
           echo "PASSWORD: $USER_PW"
           echo "-------------------------------------------"
 
