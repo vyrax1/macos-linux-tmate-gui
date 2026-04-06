@@ -1,0 +1,16 @@
+name: Remote MacOS Shell
+on: 
+  workflow_dispatch: # Allows you to start it manually
+
+jobs:
+  tmate:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v3
+      with:
+        # Only you can connect if you have SSH keys in your GH profile
+        limit-access-to-actor: true
