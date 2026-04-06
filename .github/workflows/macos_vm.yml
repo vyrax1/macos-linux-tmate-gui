@@ -1,16 +1,35 @@
-name: Remote MacOS Shell
+name: macOS GUI VM
 on: 
-  workflow_dispatch: # Allows you to start it manually
+  workflow_dispatch: # Allows manual start from the Actions tab
 
 jobs:
-  tmate:
+  macos-gui:
     runs-on: macos-latest
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Setup tmate session
-      uses: mxschmitt/action-tmate@v3
-      with:
-        # Only you can connect if you have SSH keys in your GH profile
-        limit-access-to-actor: true
+      - name: Configure macOS GUI and VNC
+        run: |
+          # 1. Set the Password (Priority: Secret > Fallback)
+          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+          
+          # 2. Update the 'runner' user password for the OS login
+          sudo dscl . -passwd /Users/runner "$USER_PW"
+          
+          # 3. Configure Apple Remote Desktop & VNC
+          # This converts the password to the hex format required for VNC viewers
+          VNC_HEX=$(printf "$USER_PW" | perl -e 'print pack("H*", "0000000000000000") . <STDIN>')
+
+          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
+          -activate -configure -access -on \
+          -clientopts -setvncpasswd -vncpasswd "$VNC_HEX" \
+          -restart -agent -privs -all
+          
+          echo "✅ GUI and VNC configured successfully."
+
+      - name: Start tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          # Set to true if you have your public SSH key saved in your GitHub settings
+          limit-access-to-actor: false
