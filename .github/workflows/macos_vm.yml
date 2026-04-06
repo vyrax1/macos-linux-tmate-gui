@@ -1,36 +1,21 @@
-name: macOS GUI VM
-on: 
-  workflow_dispatch: # Allows you to start it manually from the Actions tab
+name: macOS GUI via NoMachine
+on: workflow_dispatch
 
 jobs:
-  macos-gui:
+  macos-nomachine:
     runs-on: macos-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Configure macOS GUI and VNC
+      - name: Install NoMachine Server
         run: |
-          # 1. Define the Password (Secret or Fallback)
-          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+          brew install --cask nomachine
           
-          # 2. Force the password change for the 'runner' user
-          # This method avoids the "eDSAuthFailed" error
+          # Set password for 'runner' user
+          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
           echo "$USER_PW" | sudo passwd -u runner
           
-          # 3. Prepare the VNC password in the hex format macOS requires
-          VNC_HEX=$(printf "$USER_PW" | perl -e 'print pack("H*", "0000000000000000") . <STDIN>')
-
-          # 4. Enable Screen Sharing and VNC access
-          sudo /System/Library/CoreServices/RemoteManagement/ARDAgent.app/Contents/Resources/kickstart \
-          -activate -configure -access -on \
-          -clientopts -setvncpasswd -vncpasswd "$VNC_HEX" \
-          -restart -agent -privs -all
-          
-          echo "✅ GUI and VNC configured. Waiting for tmate..."
+          echo "✅ NoMachine installed. Password set for user: runner"
 
       - name: Start tmate session
         uses: mxschmitt/action-tmate@v3
         with:
-          # Set to true only if you have your SSH public key in your GitHub profile
           limit-access-to-actor: false
