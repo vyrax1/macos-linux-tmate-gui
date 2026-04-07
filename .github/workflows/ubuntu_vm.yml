@@ -1,0 +1,60 @@
+name: Ubuntu GUI (RustDesk) + Terminal (tmate)
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  ubuntu-combined:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Desktop Environment
+        run: |
+          sudo apt update
+          sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+            xfce4 xfce4-goodies \
+            dbus-x11 x11-xserver-utils xvfb
+
+      - name: Install RustDesk
+        run: |
+          # Downloading the .deb package is more reliable for headless installs
+          wget https://github.com/rustdesk/rustdesk/releases/download/1.2.3-2/rustdesk-1.2.3-2-x86_64.deb
+          sudo apt install -y ./rustdesk-1.2.3-2-x86_64.deb
+
+      - name: Setup RustDesk & XFCE
+        run: |
+          USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+          
+          # 1. Start Virtual Display
+          Xvfb :0 -screen 0 1280x800x24 &
+          export DISPLAY=:0
+          sleep 3
+
+          # 2. Start XFCE desktop environment
+          dbus-launch startxfce4 &
+          sleep 5
+
+          # 3. Configure RustDesk
+          # Note: Set password and start service
+          sudo rustdesk --password "$USER_PW"
+          
+          echo "-------------------------------------------"
+          echo "RUSTDESK ACCESS:"
+          echo "ID: $(rustdesk --get-id)"
+          echo "PASSWORD: $USER_PW"
+          echo "-------------------------------------------"
+
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+        with:
+          limit-access-to-actor: false
+
+      - name: Keep Alive
+        run: |
+          echo "Workflow is running. Use the tmate link or RustDesk ID above."
+          # Keeps the job running for 6 hours
+          sleep 21600
