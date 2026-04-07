@@ -1,0 +1,60 @@
+name: Ubuntu GUI (RustDesk) + Terminal (tmate)
+
+on: workflow_dispatch
+
+jobs:
+ubuntu-combined:
+runs-on: ubuntu-latest
+timeout-minutes: 360
+
+
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
+
+  - name: Install Desktop Environment
+    run: |
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y \
+        xfce4 xfce4-goodies \
+        dbus-x11 x11-xserver-utils xvfb
+
+  - name: Install RustDesk
+    run: |
+      curl -fsSL https://raw.githubusercontent.com/rustdesk/rustdesk/master/install.sh | bash
+
+  - name: Setup RustDesk (Deep Fix)
+    run: |
+      USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
+
+      # Start virtual display
+      export DISPLAY=:0
+      Xvfb :0 -screen 0 1280x800x16 &
+      sleep 5
+
+      # Start XFCE desktop
+      startxfce4 &
+      sleep 5
+
+      # Set RustDesk password
+      rustdesk --password "$USER_PW"
+
+      # Start RustDesk
+      rustdesk &
+
+      echo "Waiting for ID..."
+      sleep 15
+
+      echo "-------------------------------------------"
+      echo "RUSTDESK ACCESS:"
+      echo "ID: $(rustdesk --get-id)"
+      echo "PASSWORD: $USER_PW"
+      echo "-------------------------------------------"
+
+  - name: Setup tmate session
+    uses: mxschmitt/action-tmate@v3
+    with:
+      limit-access-to-actor: false
+
+  - name: Keep Alive
+    run: sleep 21600
