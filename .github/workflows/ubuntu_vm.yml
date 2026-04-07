@@ -1,5 +1,4 @@
 name: Ubuntu GUI (RustDesk) + Terminal (tmate)
-
 on: 
   workflow_dispatch:
 
@@ -12,39 +11,43 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Desktop Environment
+      - name: Install Desktop Environment & Dependencies
         run: |
           sudo apt update
           sudo DEBIAN_FRONTEND=noninteractive apt install -y \
-            xfce4 xfce4-goodies \
-            dbus-x11 x11-xserver-utils xvfb
+            xfce4 xfce4-goodies dbus-x11 x11-xserver-utils xvfb wget
 
-      - name: Install RustDesk
+      - name: Install RustDesk (Linux Version)
         run: |
-          # Downloading the .deb package is more reliable for headless installs
+          # Downloading a specific stable version
           wget https://github.com/rustdesk/rustdesk/releases/download/1.2.3-2/rustdesk-1.2.3-2-x86_64.deb
           sudo apt install -y ./rustdesk-1.2.3-2-x86_64.deb
 
-      - name: Setup RustDesk & XFCE
+      - name: Setup RustDesk & Virtual Display
         run: |
           USER_PW="${{ secrets.VNC_PW || 'dev12345' }}"
           
-          # 1. Start Virtual Display
-          Xvfb :0 -screen 0 1280x800x24 &
+          # 1. Start the RustDesk system service
+          sudo systemctl start rustdesk
+          sleep 2
+
+          # 2. Set the password (Direct command)
+          sudo rustdesk --password "$USER_PW"
+          
+          # 3. Start Virtual Display (Xvfb)
+          # We add +extension RANDR to help RustDesk detect screen resizing
+          Xvfb :0 -screen 0 1280x800x24 +extension RANDR &
           export DISPLAY=:0
           sleep 3
 
-          # 2. Start XFCE desktop environment
+          # 4. Start XFCE Desktop session
           dbus-launch startxfce4 &
           sleep 5
-
-          # 3. Configure RustDesk
-          # Note: Set password and start service
-          sudo rustdesk --password "$USER_PW"
           
+          # 5. Get the ID (May take a moment to register with servers)
           echo "-------------------------------------------"
           echo "RUSTDESK ACCESS:"
-          echo "ID: $(rustdesk --get-id)"
+          echo "ID: $(sudo rustdesk --get-id)"
           echo "PASSWORD: $USER_PW"
           echo "-------------------------------------------"
 
@@ -55,6 +58,6 @@ jobs:
 
       - name: Keep Alive
         run: |
-          echo "Workflow is running. Use the tmate link or RustDesk ID above."
+          echo "Workflow is active. If RustDesk is blank, check the tmate link."
           # Keeps the job running for 6 hours
           sleep 21600
